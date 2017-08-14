@@ -27,7 +27,7 @@ module.exports = function (app) {
         })
     });
     app.get('/post', function (req, res) {
-        res.render('address2.html')
+        res.render('address.html')
     });
     
     app.get('/post2', function (req, res) {
