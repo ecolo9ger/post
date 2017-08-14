@@ -1,0 +1,580 @@
+<!DOCTYPE HTML>
+<html>
+
+<head> 
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,target-densitydpi=medium-dpi">
+    <style>
+        #mask {
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: 1;
+            background-color: rgba(000, 000, 000, 0.2);
+            display: block;
+        }
+        
+        #detailmask {
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            background-color: rgba(000, 000, 000, 0.2);
+            display: block;
+        }
+        
+        #openlayer {
+            background-color: white;
+        }
+        
+        .inputtext {
+            padding: 5px;
+            font-size: 1rem;
+            width: 95%
+        }
+        
+        #openlayer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 280px;
+            height: 150px;
+            background-color: white;
+            z-index: 2000;
+            border-radius: 5px;
+            padding: 20px 5px 20px 5px;
+        }
+        
+        #openlayer select {
+            align-content: center;
+            font-size: 1rem;
+            border-radius: 3px;
+            width: 90%;
+            padding: 5px;
+            margin: 3px;
+        }
+        
+        #dataloading {
+            position: absolute;
+            top: 200px;
+            left: 110px;
+            z-index: 4000;
+            width: 60px;
+        }
+    </style>
+</head>
+
+<body>
+   <div id="layer" style="display:none;position:fixed;overflow:hidden;z-index:1;-webkit-overflow-scrolling:touch;">
+        <div id="dataloading"> <img src="./images/loading.gif" style="width:60px" /></div>
+        <div id="detailmask"> </div>
+        <div id="openlayer"></div> <img src="http://t1.daumcdn.net/localimg/localimages/07/postcode/320/close.png" id="btnCloseLayer" style="cursor:pointer;position:absolute;right:-3px;top:-3px;z-index:1" onclick="closeDaumPostcode()" alt="닫기 버튼"> <img src="http://t1.daumcdn.net/localimg/localimages/07/postcode/320/close.png" id="btnDeatilClose" style="cursor:pointer;position:absolute;right:10px;top:108px;z-index:3000" onclick="closeDetail()" alt="상세주소닫기 버튼"></div>
+    <input type="hidden" id="hiddenValue" value="" />
+    <input type="hidden" id="hiddenIdx" value="" />
+    <input type="hidden" id="hiddenX" value="" />
+    <input type="hidden" id="hiddenY" value="" />
+    <input type="hidden" id="hiddenMgtSn" value="" />
+    <input type="hidden" id="hiddenCheckJiha" value="" />
+    <input type="hidden" id="newDongName" />
+    <script src="http://dmaps.daum.net/map_js_init/postcode.v2.js"></script>
+    <script>
+        var resData = {
+            zipcode: ''
+            , jibunAddress: ''
+            , roadAddress: ''
+            , roadDetailAddress: ''
+        }
+
+        resultData = new resData();
+        
+        function execDaumPostcode() {
+            new daum.Postcode({
+                oncomplete: function (data) {
+                    // 팝업에서 검색결과 항목을 클릭했을때 실행할 코드를 작성하는 부분.
+                    // 각 주소의 노출 규칙에 따라 주소를 조합한다.
+                    // 내려오는 변수가 값이 없는 경우엔 공백('')값을 가지므로, 이를 참고하여 분기 한다.
+                    var roadfullAddr = ''; // 최종 도로명주소 변수
+                    var jibunfullAddr = '';
+                    var extraAddr = ''; // 조합형 주소 변수
+                    // 사용자가 선택한 주소 타입에 따라 해당 주소 값을 가져온다.
+                    if(data.roadAddress === ''){
+                        roadfullAddr = data.autoRoadAddress;
+                    }else{
+                        roadfullAddr = data.roadAddress;
+                    }
+                    
+                    if(data.jibunAddress === ''){
+                            jibunfullAddr = data.autoJibunAddress
+                        }else{
+                            jibunfullAddr = data.jibunAddress
+                        }
+//                    
+//                    if (data.userSelectedType === 'R') { // 사용자가 도로명 주소를 선택했을 경우
+//                        roadfullAddr = data.roadAddress;
+//                    }
+//                    else { // 사용자가 지번 주소를 선택했을 경우(J)
+//                        jibunfullAddr = data.jibunAddress;
+//                    }
+                    // 사용자가 선택한 주소가 도로명 타입일때 조합한다.
+                    if (data.userSelectedType === 'R') {
+                        //법정동명이 있을 경우 추가한다.
+                        if (data.bname !== '') {
+                            extraAddr += data.bname;
+                        }
+                        // 건물명이 있을 경우 추가한다.
+                        if (data.buildingName !== '') {
+                            extraAddr += (extraAddr !== '' ? ', ' + data.buildingName : data.buildingName);
+                        }
+                        // 조합형주소의 유무에 따라 양쪽에 괄호를 추가하여 최종 주소를 만든다.
+                        roadfullAddr += (extraAddr !== '' ? ' (' + extraAddr + ')' : '');
+                        
+                        jibunfullAddr += (extraAddr !== '' ? ' (' + extraAddr + ')' : '');
+                    }
+                    
+                    resultData.zipcode = data.zonecode;
+                    resultData.jibunAddress = jibunfullAddr;
+                    resultData.roadAddress = roadfullAddr;
+                    
+                    
+                    // 우편번호와 주소 정보를 해당 필드에 넣는다.
+//                    document.getElementById('sample6_postcode').value = data.zonecode; //5자리 새우편번호 사용
+//                    document.getElementById('sample6_address').value = fullAddr;
+//                    // 커서를 상세주소 필드로 이동한다.
+//                    document.getElementById('sample6_address2').focus();
+                    
+                    //동층호 정보 만들기
+                     var MgtSn = data.sigunguCode + data.roadnameCode;
+                    if (data.roadAddressEnglish !== '') {
+                        data.roadAddressEnglish
+                        bdArray = data.roadAddressEnglish.split(',');
+                    }
+                    else {
+                        bdArray = data.autoRoadAddressEnglish.split(',');
+                    }
+                    bd = bdArray[0].split('-');
+                    bdMnnm = bd[0];
+                    bdSlno = bd.length > 1 ? bd[1] : 0;
+                    udrtYn = 0;
+                    
+                    //동층호 함수 실행
+                    addrDongSelect(data.buildingCode, MgtSn, bdMnnm, bdSlno, udrtYn, roadAddress, jibunAddress, fullAddr)
+                    
+                }
+            }).open();
+        }
+    </script>
+    <script>
+        /*********************************************************
+         * 상세주소(동,층,호)보기 
+         *********************************************************/
+        var xmlHttp;
+        var selectId;
+        var openLayerId = "openlayer";
+        $("#" + openLayerId).hide();
+
+        function createXMLHttpRequest() {
+            if (window.ActiveXObject) {
+                xmlHttp = new ActiveXObject("Microsoft.XMLHTTP");
+            }
+            else if (window.XMLHttpRequest) {
+                xmlHttp = new XMLHttpRequest();
+            }
+        }
+        //상세주소 조회 - 동정보 조회 
+        function addrDongSelect(buildingCode, MgtSn, bdMnnn, bdSlno, udrtYn, address, jibunAddress, fullAddr) {
+            document.getElementById('hiddenValue').value = fullAddr;
+            if (udrtYn == "지하") {
+                udrtYn = "1";
+            }
+            else {
+                udrtYn = "0";
+            }
+            var urladress = '';
+            urladress = "http://www.juso.go.kr/search/getAddrDongDetailSelect.do?bdMgtSn=" + buildingCode;
+            urladress += "&MgtSn=" + MgtSn;
+            urladress += "&bdMnnm=" + bdMnnm;
+            urladress += "&bdSlno=" + bdSlno;
+            urladress += "&udrtYn=" + udrtYn;
+            closeLayerId = "close_detail";
+            console.log(urladress)
+            $.ajax({
+                url: urladress
+                , type: "get"
+                , dataType: "xml"
+                , beforeSend: function () {
+                    $('#mask').css({
+                        'width': '100%'
+                        , 'height': '100%'
+                        , 'display': 'block'
+                    });
+                    $('#detailmask').css({
+                        'width': '300px'
+                        , 'height': '400px'
+                        , 'display': 'block'
+                    });
+                    document.getElementById('dataloading').style.display = 'block';
+                    console.log("st")
+                }
+                , complete: function () {
+                    document.getElementById('dataloading').style.display = 'none';
+                    console.log("ed")
+                }
+                , success: function (result) {
+                    var resultXml = $.parseXML(result.responseText)
+                    console.log(resultXml)
+                    handleStateChangeAddrDongDetailSelect(resultXml)
+                }
+                , error: function (xhr, status, errthrown) {
+                    alert("에러");
+                }
+            });
+        }
+        //상세주소 조회 - 동정보 조회 결과처리 
+        function handleStateChangeAddrDongDetailSelect(resultXml) {
+            var dongNmes = resultXml.getElementsByTagName('dongNm'); // 동
+            var dongSnes = resultXml.getElementsByTagName('dongSn'); // 동sn
+            var d = resultXml.getElementsByTagName('d');
+            var k = resultXml.getElementsByTagName('k');
+            var mgtSn = resultXml.getElementsByTagName('mgtSn');
+            var bulManNo = resultXml.getElementsByTagName('bulManNo');
+            var mgtSnSgg = resultXml.getElementsByTagName('mgtSnSgg');
+            var bdMaSn = resultXml.getElementsByTagName('bdMaSn');
+            var bdSlno = resultXml.getElementsByTagName('bdSlno');
+            var rdsMgtSn = resultXml.getElementsByTagName('rdsMgtSn');
+            var entD = resultXml.getElementsByTagName('entD');
+            var entK = resultXml.getElementsByTagName('entK');
+            var eqbManSn = resultXml.getElementsByTagName('eqbManSn');
+            var rnMgtSn = resultXml.getElementsByTagName('rnMgtSn');
+            var selector = resultXml.getElementsByTagName('selector');
+            var buffer = "";
+            if (dongNmes.length == 0) {
+                $("#" + openLayerId).hide();
+                document.getElementById('layer').style.display = 'none';
+                document.getElementById('openlayer').style.display = 'none';
+                document.getElementById('mask').style.display = 'none';
+                document.getElementById('detailmask').style.display = 'none';
+                document.getElementById('btnDeatilClose').style.display = 'none';
+            }
+            else {
+                //동층호 보이기
+                $("#" + openLayerId).show();
+                var $id = $('#openlayer')
+                    , $outer = $('#layer')
+                    , $mask = $('#mask')
+                $id.css({
+                    'margin-top': -($id.outerHeight() / 2)
+                    , 'margin-left': -($id.outerWidth() / 2)
+                });
+                $('#mask').css({
+                    'width': '100%'
+                    , 'height': '100%'
+                    , 'display': 'block'
+                });
+                $('#detailmask').css({
+                    'width': '300px'
+                    , 'height': '400px'
+                    , 'display': 'block'
+                });
+                document.getElementById('btnDeatilClose').style.display = 'inline';
+            }
+            //  리스트 수만큼 option을 달아준다  
+            buffer += "<div class='search-pop2'>";
+            buffer += "<div class='content'><div class='frm'><form><fieldset style='padding-left:3px;'><legend>상세주소(동·층·호)를 선택하세요</legend>";
+            buffer += "<div id='selwrap' style='text-align:center'><select id='sel_dong" + selectId + "' title='상세주소 동선택' class='sel_dong' onchange=\"javascript:goDongDetail(this,'dong','" + selector[0].firstChild.nodeValue + "');\">";
+            if (dongNmes.length > 1) {
+                buffer += "<option value='init' selected='selected'>동을 선택하세요.</option>";
+                for (var i = 0; i < dongNmes.length; i++) {
+                    if (d[i].firstChild.nodeValue != '0') {
+                        buffer += "<option value='" + d[i].firstChild.nodeValue + ",";
+                        buffer += k[i].firstChild.nodeValue + ",";
+                        buffer += mgtSn[i].firstChild.nodeValue + ",";
+                        buffer += dongNmes[i].firstChild.nodeValue + ",";
+                        buffer += dongSnes[i].firstChild.nodeValue + ",";
+                        buffer += mgtSnSgg[i].firstChild.nodeValue + ",";
+                        buffer += bulManNo[i].firstChild.nodeValue + "'>";
+                    }
+                    else {
+                        buffer += "<option value=''>";
+                    }
+                    if (dongNmes[i].firstChild.nodeValue == '0') {
+                        buffer += '"동" 표기 없음.';
+                        document.getElementById("newDongName").value = "";
+                    }
+                    else {
+                        buffer += dongNmes[i].firstChild.nodeValue + "동";
+                        document.getElementById("newDongName").value = dongNmes[i].firstChild.nodeValue + "동";
+                    }
+                    if (d[i].firstChild.nodeValue != '0') {
+                        buffer += "</option>";
+                    }
+                }
+            }
+            else if (dongNmes.length == 1) {
+                buffer += "<option value='init'>동을 선택하세요.</option>";
+                for (var i = 0; i < dongNmes.length; i++) {
+                    if (d[i].firstChild.nodeValue != '0') {
+                        buffer += "<option value='" + d[i].firstChild.nodeValue + "," + k[i].firstChild.nodeValue + "," + mgtSn[i].firstChild.nodeValue + "," + dongNmes[i].firstChild.nodeValue + "," + dongSnes[i].firstChild.nodeValue + "," + mgtSnSgg[i].firstChild.nodeValue + "," + bulManNo[i].firstChild.nodeValue + "'  selected='selected'>";
+                    }
+                    else {
+                        buffer += "<option value=''>";
+                    }
+                    if (dongNmes[i].firstChild.nodeValue == '0') {
+                        buffer += '"동" 표기 없음.';
+                        document.getElementById("newDongName").value = "";
+                    }
+                    else {
+                        buffer += dongNmes[i].firstChild.nodeValue + "동";
+                        document.getElementById("newDongName").value = dongNmes[i].firstChild.nodeValue;
+                    }
+                    if (d[i].firstChild.nodeValue != '0') {
+                        buffer += "</option>";
+                    }
+                }
+            }
+            buffer += "</select>";
+            buffer += "<select id='sel_dong_floor" + selectId + "' title='상세주소 층선택' class='sel_floor' onchange='javascript:goFloorDetail(this);'>";
+            buffer += "<option value=''>층을 선택하세요.</option>";
+            buffer += "</select>";
+            buffer += "<select id='sel_dong_ho" + selectId + "' title='상세주소 호선택' class='sel_ho' onchange='javascript:goHoDetail(this," + rdsMgtSn[0].firstChild.nodeValue + "," + bdMaSn[0].firstChild.nodeValue + "," + bdSlno[0].firstChild.nodeValue + "," + entD[0].firstChild.nodeValue + "," + entK[0].firstChild.nodeValue + "," + eqbManSn[0].firstChild.nodeValue + "," + rnMgtSn[0].firstChild.nodeValue + ");' >";
+            buffer += "<option value=''>호를 선택하세요.</option>";
+            buffer += "</select></div></fieldset></form></div>";
+            buffer += "</div></div>";
+            document.getElementById(openLayerId).innerHTML = buffer;
+            //동명이 없고 하나일 경우 바로 층 - 호로 넘어가기
+            if (dongNmes.length == 1) {
+                var str = d[0].firstChild.nodeValue + "," + k[0].firstChild.nodeValue + "," + mgtSn[0].firstChild.nodeValue + "," + dongNmes[0].firstChild.nodeValue + "," + dongSnes[0].firstChild.nodeValue + "," + mgtSnSgg[0].firstChild.nodeValue + "," + bulManNo[0].firstChild.nodeValue;
+                goDongDetail(str, 'floor', selector[0].firstChild.nodeValue);
+            }
+        }
+        //상세주소 조회 - 층,호 정보 조회
+        function goDongDetail(obj, gubun, dataType) {
+            var splitValue = new Array();
+            if (gubun != null || gubun != '') {
+                if (gubun == 'floor') {
+                    splitValue = obj.split(",");
+                }
+                else if (gubun == 'dong') {
+                    if (document.getElementById(obj.id).value == 'init') {
+                        removeSelect("sel_dong_floor");
+                        removeSelect("sel_dong_ho");
+                    }
+                    if (document.getElementById(obj.id).value == '') {
+                        return false;
+                    }
+                    splitValue = document.getElementById(obj.id).value.split(",");
+                }
+            }
+            document.getElementById("hiddenX").value = splitValue[0];
+            document.getElementById("hiddenY").value = splitValue[1];
+            document.getElementById("hiddenMgtSn").value = splitValue[2];
+            document.getElementById("newDongName").value = splitValue[3];
+            var url = "http://www.juso.go.kr/search/getAddrFloorDetail.do?bdMgtSn=" + splitValue[2] + "&dongNm=" + encodeURI(splitValue[3]) + "&dongSn=" + splitValue[4] + "&mgtSnSgg=" + splitValue[5] + "&type=" + dataType + "&bulManNo=" + splitValue[6];
+            $.ajax({
+                url: url
+                , type: "get"
+                , dataType: "xml"
+                , beforeSend: function () {
+                    document.getElementById('dataloading').style.display = 'block';
+                    $("#selwrap").children().prop('disabled', true);
+                    console.log("st")
+                }
+                , complete: function () {
+                    document.getElementById('dataloading').style.display = 'none';
+                    $("#selwrap").children().prop('disabled', false);
+                    console.log("ed")
+                }
+                , success: function (result) {
+                    var resultXml = $.parseXML(result.responseText)
+                    console.log(resultXml)
+                    handleStateChangeAddrFloorDetail(resultXml)
+                }
+                , error: function (xhr, status, errthrown) {
+                    alert("에러");
+                }
+            });
+        }
+        //상세주소 조회 - 층,호 정보 조회 결과처리
+        var arrayHo;
+
+        function handleStateChangeAddrFloorDetail(resultXml) {
+            var undgrndSes = resultXml.getElementsByTagName('undgrndSe');
+            var floorNmes = resultXml.getElementsByTagName('floorNm');
+            var hoNmes = resultXml.getElementsByTagName('hoNm');
+            var sel_floor = document.getElementById("sel_dong_floor" + selectId);
+            removeSelect("sel_dong_floor");
+            removeSelect("sel_dong_ho");
+            var option;
+            var buffer = "";
+            for (var i = 0; i < floorNmes.length; i++) {
+                buffer = "";
+                if (undgrndSes[i].firstChild.nodeValue != '0') {
+                    buffer = '지하';
+                    if (floorNmes[i].firstChild.nodeValue != '0') {
+                        buffer += ' ' + floorNmes[i].firstChild.nodeValue + '층';
+                    }
+                }
+                else {
+                    if (floorNmes[i].firstChild.nodeValue == '0') {
+                        buffer = '"층" 표기 없음.';
+                        document.getElementById("sel_dong_floor" + selectId).selectedIndex = 0;
+                        $(".select-title.sel_floor").text(buffer);
+                    }
+                    else {
+                        buffer += floorNmes[i].firstChild.nodeValue + "층";
+                    }
+                }
+                option = new Option(buffer, undgrndSes[i].firstChild.nodeValue + "," + floorNmes[i].firstChild.nodeValue + "," + i);
+                option.title = buffer;
+                sel_floor.options[i + 1] = option;
+            }
+            //호 배열로 넣고 층 입력에 따라서 호 정보 보여주기
+            arrayHo = new Array();
+            for (var i = 0; i < hoNmes.length; i++) {
+                arrayHo[i] = hoNmes[i].firstChild ? hoNmes[i].firstChild.nodeValue : "0";
+            }
+            delete xmlHttp;
+            xmlHttp = null;
+            //층명이 없고 하나일 경우 바로 호로 넘어가기
+            if (floorNmes.length == 1) {
+                document.getElementById("sel_dong_floor" + selectId).value = undgrndSes[0].firstChild.nodeValue + "," + floorNmes[0].firstChild.nodeValue + "," + 0;
+                goFloorDetail(document.getElementById("sel_dong_floor" + selectId));
+            }
+        }
+        //상세주소 층 선택 시 호정보 표시
+        function goFloorDetail(obj) {
+            // document.getElementById("fullDetailjuso").innerHTML = "";
+            if (document.getElementById(obj.id).value == 'init') {
+                removeSelect("sel_dong_ho");
+            }
+            var splitValue = document.getElementById(obj.id).value.split(",");
+            document.getElementById('hiddenCheckJiha').value = splitValue[0];
+            //층에 해당하는 호만 표시
+            showHoDetail(splitValue[2]);
+        }
+        //층에 해당하는 호 표시
+        function showHoDetail(value) {
+            removeSelect("sel_dong_ho");
+            if (typeof value == "undefined") {
+                value = 0;
+            }
+            if (document.getElementById('hiddenCheckJiha').value != "init") {
+                var hosplit = arrayHo[value].split(",");
+                var sel_ho = document.getElementById("sel_dong_ho" + selectId);
+                var option;
+                for (var i = 0; i < hosplit.length; i++) {
+                    if (hosplit[i] == '0') {
+                        option = new Option('"호" 표기 없음.', "-");
+                    }
+                    else {
+                        option = new Option(hosplit[i] + "호", hosplit[i]);
+                    }
+                    sel_ho.options[i + 1] = option;
+                }
+            }
+        }
+        //상세주소 호 선택시 전체주소 표시
+        function goHoDetail(obj, rdsMgtSn, bdMaSn, bdSlno, entD, entK, eqbManSn, rnMgtSn) {
+            settingFullJuso(document.getElementById(obj.id).value, rdsMgtSn, bdMaSn, bdSlno, entD, entK, eqbManSn, rnMgtSn);
+        }
+        //동.층.호까지 선택 된 경우 완전한 주소 표시
+        function settingFullJuso(hoNm, rdsMgtSn, bdMaSn, bdSlno, entD, entK, eqbManSn, rnMgtSn) {
+            var splitJuso = document.getElementById("hiddenValue").value;
+            var newDongName = document.getElementById("newDongName").value;
+            splitJuso = splitJuso.split("(");
+            var Juso = splitJuso[0].replace(/(^\s*)|(\s*$)/g, ""); //앞뒤 공백 제거
+            hoNm = hoNm.replace(/(^\s*)|(\s*$)/g, ""); //앞뒤 공백 제거
+            if (hoNm == '') {
+                return false;
+            }
+            var txthoNm = (hoNm == 0) ? "" : hoNm + "호";
+            var splitFloor = document.getElementById("sel_dong_floor" + selectId).value;
+            if (splitFloor != "") {
+                splitFloor = splitFloor.split(",");
+                var txtfloor = splitFloor[1].replace(/(^\s*)|(\s*$)/g, ""); //앞뒤 공백 제거
+                var chkFloor = hoNm;
+                if (hoNm.length >= 3) {
+                    chkFloor = hoNm.substring(0, hoNm.length - 2);
+                    //호정보의 층정보과 실제 층정보가 일치하지 않을경우 층수 표기
+                    if (txtfloor != chkFloor && txtfloor != '0') {
+                        txthoNm = txtfloor + "층 " + txthoNm;
+                    }
+                }
+                else {
+                    if (txtfloor != '0') {
+                        txthoNm = txtfloor + "층 " + txthoNm;
+                    }
+                }
+            }
+            if (document.getElementById('hiddenCheckJiha').value != "0") {
+                txthoNm = "지하 " + txthoNm;
+            }
+            var addrIdx = parseInt(selectId) + 1;
+            var buffer = "";
+            buffer += Juso + ", ";
+            if (newDongName == '0') {
+                buffer += "";
+            }
+            else if (newDongName != '') {
+                buffer += newDongName + "동 ";
+            }
+            buffer += txthoNm;
+            //  buffer += "</a>";
+            buffer += (splitJuso.length > 1) ? "<span>(" + splitJuso[1] : "";
+            buffer += (splitJuso.length > 2) ? "(" + splitJuso[2] : "";
+            buffer += "</span>";
+            //클립보드에 넣을 데이터 생성
+            var subJuso = "";
+            if (newDongName == '0') {
+                subJuso = "";
+            }
+            else if (newDongName != '') {
+                subJuso = newDongName + "동 ";
+            }
+            var lastJuso = (splitJuso.length > 1) ? "(" + splitJuso[1] : "";
+            var lastJuso2 = (splitJuso.length > 2) ? "(" + splitJuso[2] : "";
+            subJuso = (subJuso == " ") ? "" : subJuso;
+            var clipData = Juso + ", " + subJuso + txthoNm + lastJuso + lastJuso2;
+            //동층호닫기
+            document.getElementById("detailAddress").value = subJuso + txthoNm;
+            document.getElementById('layer').style.display = 'none';
+            document.getElementById('openlayer').style.display = 'none';
+            document.getElementById('btnDeatilClose').style.display = 'none';
+            document.getElementById('mask').style.display = 'none';
+            document.getElementById('detailmask').style.display = 'none';
+        }
+
+        function closeDetail() {
+            document.getElementById('openlayer').style.display = 'none';
+            document.getElementById('btnDeatilClose').style.display = 'none';
+            document.getElementById('mask').style.display = 'none';
+            document.getElementById('detailmask').style.display = 'none';
+        }
+        //층,호 선택 초기화
+        function removeSelect(id) {
+            var toObject = document.getElementById(id + selectId);
+            toObject.options.length = 0;
+            if (id == 'sel_dong_floor') {
+                toObject.options[0] = new Option('층을 선택하세요.', 'init');
+                $(".select-title.sel_floor strong").text('층을 선택하세요.');
+            }
+            else if (id == 'sel_dong_ho') {
+                toObject.options[0] = new Option('호를 선택하세요.', '');
+                $(".select-title.sel_ho strong").text('호를 선택하세요.');
+            }
+        }
+        //클립보드로 주소 복사하기
+        function clip(data) {
+            var userAgent = navigator.userAgent.indexOf("Chrome");
+            if (userAgent > 0) {
+                prompt("주소를 복사하여 사용하세요.\n", data);
+            }
+            else {
+                window.clipboardData.setData('Text', data);
+                var clipData = window.clipboardData.getData('Text');
+                alert("주소가 복사 되었습니다.\n" + clipData);
+            }
+        }
+        
+    </script>
+</body>
+
+</html>
